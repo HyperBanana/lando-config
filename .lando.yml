@@ -1,0 +1,66 @@
+name: {APP_NAME} 
+recipe: laravel
+
+excludes:
+  - vendor
+  - node_modules    
+
+config:
+  webroot: public
+  php: '8.0'
+  via: nginx
+  database: mysql:5.7
+services:
+  node:
+    type: node:16
+    build:
+      - npm install
+      - npm run dev
+  appserver:
+    build:
+      - '[ ! -f ".env" ] && cp .env.example .env || echo ".env already present"'
+      - '[ ! -f ".env.testing" ] && cp .env.example .env.testing || echo ".env already present"'
+      - '[ ! -f ".env.dusk.local" ] && cp .env.example .env.dusk.local || echo ".env already present"'
+      - composer install
+      - php artisan key:generate
+      - php artisan migrate
+    overrides:
+      depends_on:
+        - database
+  database:
+    portforward: 3307
+    creds:
+      database: {DB_NAME}
+      user: root
+      password:
+  #testdb:
+  #  type: mysql:5.7
+  #  creds:
+  #    database: {TEST_DB_NAME}
+  #    user: root
+  #    password:
+  phpmyadmin:
+    type: phpmyadmin
+  #chromedriver:
+  #  type: compose
+  #  services:
+  #    image: selenium/standalone-chrome
+  #    expose:
+  #      - "9515"
+  #    environment:
+  #      CHROMEDRIVER_WHITELISTED_IPS: ""
+  #      CHROMEDRIVER_URL_BASE: "/wd/hub"
+  #    security_opt:
+  #      - seccomp:unconfined
+tooling:
+  npm:
+    service: node
+  phpunit:
+    service: appserver
+    description: "Runs phpunit tests"
+    cmd: ./vendor/bin/phpunit
+  phpstan:
+    service: appserver
+    description: "Runs phpstan static analysis"
+    cmd: ./vendor/bin/phpstan analyse
+
