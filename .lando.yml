@@ -37,7 +37,7 @@ services:
     services:
       image: selenium/standalone-chrome
       environment:
-        TZ: Europ/Riga
+        TZ: Europe/Riga
         START_XVBF: 'false'
       volumes:
         - /dev/shm:/dev/shm
