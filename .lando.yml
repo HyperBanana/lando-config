@@ -1,57 +1,71 @@
-name: {APP_NAME} 
+name: {APP_NAME}
 recipe: laravel
 
 excludes:
   - vendor
-  - node_modules    
+  - node_modules
 
 config:
   webroot: public
-  php: '8.0'
+  php: '8.1'
   via: nginx
-  database: mysql:5.7
+
 services:
   node:
     type: node:16
     build:
       - npm install
       - npm run dev
+    overrides:
+      ports:
+        - 3000:3000
+        - 3001:3001
   appserver:
     build:
       - '[ ! -f ".env" ] && cp .env.example .env || echo ".env already present"'
-      - '[ ! -f ".env.testing" ] && cp .env.example .env.testing || echo ".env already present"'
-      - '[ ! -f ".env.dusk.local" ] && cp .env.example .env.dusk.local || echo ".env already present"'
+      - '[ ! -f ".env.testing" ] && cp .env.example .env.testing || echo ".env.testing already present"'
+      - '[ ! -f ".env.dusk.local" ] && cp .env.example .env.dusk.local || echo ".env.dusk already present"'
       - composer install
       - php artisan key:generate
       - php artisan migrate
     overrides:
       depends_on:
         - database
+  chromedriver:
+    type: compose
+    app_mount: false
+    services:
+      image: selenium/standalone-chrome
+      environment:
+        TZ: Europ/Riga
+        START_XVBF: 'false'
+      volumes:
+        - /dev/shm:/dev/shm
+      command: /opt/bin/entry_point.sh
+      ports:
+        - 4444:4444
   database:
+    type: mysql:5.7
     portforward: 3307
     creds:
-      database: {DB_NAME}
+      database: {DB_NAME} 
       user: root
       password:
-  #testdb:
-  #  type: mysql:5.7
-  #  creds:
-  #    database: {TEST_DB_NAME}
-  #    user: root
-  #    password:
-  phpmyadmin:
+    overrides:
+      volumes:
+        - ../database:/var/lib/mysql
+  testdatabase:
+    type: mysql:5.7
+    creds:
+      user: root
+      password:
+      database: testdb  
+  pma:
     type: phpmyadmin
-  #chromedriver:
-  #  type: compose
-  #  services:
-  #    image: selenium/standalone-chrome
-  #    expose:
-  #      - "9515"
-  #    environment:
-  #      CHROMEDRIVER_WHITELISTED_IPS: ""
-  #      CHROMEDRIVER_URL_BASE: "/wd/hub"
-  #    security_opt:
-  #      - seccomp:unconfined
+    hosts:
+      - database
+      - testdatabase
+
 tooling:
   npm:
     service: node
@@ -63,4 +77,3 @@ tooling:
     service: appserver
     description: "Runs phpstan static analysis"
     cmd: ./vendor/bin/phpstan analyse
-
